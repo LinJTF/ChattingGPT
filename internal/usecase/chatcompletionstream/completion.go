@@ -124,7 +124,29 @@ func (uc *ChatCompletionUseCase) Execute(ctx context.Context, input ChatCompleti
 			UserID:  input.UserID,
 			Content: fullResponse.String(),
 		}
+		uc.Stream <- r
 	}
+
+	assistant, err := entity.NewMessage("assistant", fullResponse.String(), chat.Config.Model)
+	if err != nil {
+		return nil, errors.New("failed to create assistant message: " + err.Error())
+	}
+
+	err = chat.AddMessage(assistant)
+	if err != nil {
+		return nil, errors.New("failed to add new message: " + err.Error())
+	}
+
+	err = uc.ChatGateway.SaveChat(ctx, chat)
+	if err != nil {
+		return nil, errors.New("failed to save chat: " + err.Error())
+	}
+
+	return &ChatCompletionOutputDTO{
+		ChatID:  chat.ID,
+		UserID:  input.UserID,
+		Content: fullResponse.String(),
+	}, nil
 }
 
 func createNewChat(input ChatCompletionInputDTO) (*entity.Chat, error) {
